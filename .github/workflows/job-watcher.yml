@@ -16,7 +16,7 @@ jobs:
         run: |
           echo "=== SMTP ENV in runner ==="
           printenv | grep -E 'SMTP_|SENDER_EMAIL|REPLY_TO_EMAIL'
-      
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
