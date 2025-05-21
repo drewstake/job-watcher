@@ -1,4 +1,4 @@
-# .github/workflows/job-watcher.yml
+# .github/workflows/job-watcher.yml :)
 name: Job Watcher
 
 on:
