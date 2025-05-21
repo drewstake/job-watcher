@@ -1,5 +1,5 @@
 from dotenv import load_dotenv
-# Override any existing shell exports with .env values
+# Override shell exports with .env
 load_dotenv(override=True)
 
 import os
@@ -7,6 +7,7 @@ import sys
 import json
 import time
 import smtplib
+from datetime import datetime
 from email.message import EmailMessage
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
@@ -15,13 +16,13 @@ from selenium.webdriver.common.by import By
 from webdriver_manager.chrome import ChromeDriverManager
 
 # — CONFIG —
-BASE_URL    = "https://recruiting.paylocity.com"
-PATH        = "/recruiting/jobs/All/4e1cd2fd-3e15-41ae-a6d5-1ca70a95426b/Elite-Development-Group-LLC"
-URL         = BASE_URL + PATH
-SEEN_FILE   = "seen.json"
-TO_EMAIL    = "drewstake3@gmail.com"
+BASE_URL      = "https://recruiting.paylocity.com"
+PATH          = "/recruiting/jobs/All/4e1cd2fd-3e15-41ae-a6d5-1ca70a95426b/Elite-Development-Group-LLC"
+URL           = BASE_URL + PATH
+SEEN_FILE     = "seen.json"
+TO_EMAIL      = "drewstake3@gmail.com"
+DATE_FORMAT   = "%Y-%m-%d"
 
-# required env vars
 REQUIRED_ENVS = [
     "SMTP_HOST",
     "SMTP_PORT",
@@ -38,15 +39,17 @@ def check_env_vars():
         sys.exit(1)
 
 def load_seen():
+    """Load a dict of {url: first_seen_date} from seen.json."""
     try:
         with open(SEEN_FILE, "r") as f:
-            return set(json.load(f))
+            return json.load(f)
     except FileNotFoundError:
-        return set()
+        return {}
 
-def save_seen(seen):
+def save_seen(seen_dict):
+    """Persist the seen dict back to seen.json."""
     with open(SEEN_FILE, "w") as f:
-        json.dump(list(seen), f)
+        json.dump(seen_dict, f, indent=2)
 
 def fetch_jobs():
     opts = Options()
@@ -66,11 +69,13 @@ def fetch_jobs():
     )
     driver.execute_cdp_cmd(
         "Page.addScriptToEvaluateOnNewDocument",
-        {"source": "Object.defineProperty(navigator, 'webdriver', {get: () => undefined});"}
+        {
+            "source": "Object.defineProperty(navigator, 'webdriver', {get: () => undefined});"
+        }
     )
 
     driver.get(URL)
-    time.sleep(5)  # For production, replace with WebDriverWait on job-listing-job-item
+    time.sleep(5)
 
     jobs = []
     for card in driver.find_elements(By.CSS_SELECTOR, ".job-listing-job-item"):
@@ -85,10 +90,10 @@ def fetch_jobs():
 def send_email(new_jobs):
     body = "\n\n".join(f"{j['title']}\n{j['url']}" for j in new_jobs)
     msg = EmailMessage()
-    msg["Subject"]    = f"{len(new_jobs)} new job(s) found"
-    msg["From"]       = os.getenv("SENDER_EMAIL")
-    msg["Reply-To"]   = os.getenv("REPLY_TO_EMAIL")
-    msg["To"]         = TO_EMAIL
+    msg["Subject"]  = f"{len(new_jobs)} new job(s) found"
+    msg["From"]     = os.getenv("SENDER_EMAIL")
+    msg["Reply-To"] = os.getenv("REPLY_TO_EMAIL")
+    msg["To"]       = TO_EMAIL
     msg.set_content(body)
 
     with smtplib.SMTP(os.getenv("SMTP_HOST"), int(os.getenv("SMTP_PORT"))) as smtp:
@@ -99,23 +104,28 @@ def send_email(new_jobs):
 def main():
     check_env_vars()
 
-    seen = load_seen()
-    jobs = fetch_jobs()
+    seen     = load_seen()  # dict url→date
+    jobs     = fetch_jobs()
+    today    = datetime.now().strftime(DATE_FORMAT)
 
     print(f"\n=== Current Jobs ({len(jobs)}) ===")
     for i, job in enumerate(jobs, 1):
-        print(f"{i}. {job['title']}\n   {job['url']}")
+        mark = seen.get(job["url"], "NEW")
+        print(f"{i}. {job['title']}  (first seen: {mark})\n   {job['url']}")
     print("=" * 30 + "\n")
 
-    new = [j for j in jobs if j["url"] not in seen]
-    if not new:
+    # find jobs we have not recorded yet
+    new_jobs = [j for j in jobs if j["url"] not in seen]
+    if not new_jobs:
         print("No new jobs found.\n")
         return
 
-    send_email(new)
-    seen.update(j["url"] for j in new)
+    # notify and record
+    send_email(new_jobs)
+    for j in new_jobs:
+        seen[j["url"]] = today
     save_seen(seen)
-    print(f"Sent email for {len(new)} new job(s).\n")
+    print(f"Sent email for {len(new_jobs)} new job(s) on {today}.\n")
 
 if __name__ == "__main__":
     main()
