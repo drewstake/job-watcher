@@ -1,8 +1,9 @@
+# .github/workflows/job-watcher.yml
 name: Job Watcher
 
 on:
   schedule:
-    - cron: '0 */12 * * *'   # at minute 0 past every 12th hour
+    - cron: '0 */12 * * *'    # runs at 00:00 & 12:00 UTC (8 AM & 8 PM EDT)
   workflow_dispatch:
 
 jobs:
@@ -19,12 +20,14 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install selenium webdriver-manager
+          pip install selenium webdriver-manager python-dotenv
 
       - name: Run watcher
         env:
-          SMTP_HOST: ${{ secrets.SMTP_HOST }}
-          SMTP_PORT: ${{ secrets.SMTP_PORT }}
-          SMTP_USER: ${{ secrets.SMTP_USER }}
-          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          SMTP_HOST:     ${{ secrets.SMTP_HOST }}
+          SMTP_PORT:     ${{ secrets.SMTP_PORT }}
+          SMTP_USER:     ${{ secrets.SMTP_USER }}
+          SMTP_PASS:     ${{ secrets.SMTP_PASS }}
+          SENDER_EMAIL:  ${{ secrets.SENDER_EMAIL }}
+          REPLY_TO_EMAIL:${{ secrets.REPLY_TO_EMAIL }}
         run: python job_watcher.py
