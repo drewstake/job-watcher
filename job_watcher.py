@@ -23,17 +23,24 @@ SEEN_FILE     = "seen.json"
 TO_EMAIL      = "drewstake3@gmail.com"
 DATE_FORMAT   = "%Y-%m-%d"
 
+# Always required
 REQUIRED_ENVS = [
     "SMTP_HOST",
     "SMTP_PORT",
     "SMTP_USER",
-    "SMTP_PASS",
+    "SMTP_PASS"
+]
+# Only required when NOT running in GitHub Actions
+CI_OPTIONAL_ENVS = [
     "SENDER_EMAIL",
     "REPLY_TO_EMAIL"
 ]
 
 def check_env_vars():
     missing = [v for v in REQUIRED_ENVS if not os.getenv(v)]
+    # in CI we skip the sender/reply vars
+    if not os.getenv("GITHUB_ACTIONS"):
+        missing += [v for v in CI_OPTIONAL_ENVS if not os.getenv(v)]
     if missing:
         print("Error: missing environment variables:", ", ".join(missing))
         sys.exit(1)
@@ -98,8 +105,11 @@ def send_email(new_jobs):
     body = "\n\n".join(f"{j['title']}\n{j['url']}" for j in new_jobs)
     msg = EmailMessage()
     msg["Subject"]  = f"{len(new_jobs)} new job(s) found"
-    msg["From"]     = os.getenv("SENDER_EMAIL")
-    msg["Reply-To"] = os.getenv("REPLY_TO_EMAIL")
+    # In CI we may rely on SendGrid default sender, so only set if provided
+    if os.getenv("SENDER_EMAIL"):
+        msg["From"]     = os.getenv("SENDER_EMAIL")
+    if os.getenv("REPLY_TO_EMAIL"):
+        msg["Reply-To"] = os.getenv("REPLY_TO_EMAIL")
     msg["To"]       = TO_EMAIL
     msg.set_content(body)
 
