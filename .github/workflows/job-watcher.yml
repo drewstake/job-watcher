@@ -1,4 +1,3 @@
-# .github/workflows/job-watcher.yml
 name: Job Watcher
 
 on:
@@ -24,10 +23,10 @@ jobs:
 
       - name: Run watcher
         env:
-          SMTP_HOST:     ${{ secrets.SMTP_HOST }}
-          SMTP_PORT:     ${{ secrets.SMTP_PORT }}
-          SMTP_USER:     ${{ secrets.SMTP_USER }}
-          SMTP_PASS:     ${{ secrets.SMTP_PASS }}
-          SENDER_EMAIL:  ${{ secrets.SENDER_EMAIL }}
-          REPLY_TO_EMAIL:${{ secrets.REPLY_TO_EMAIL }}
+          SMTP_HOST:      ${{ secrets.SMTP_HOST }}
+          SMTP_PORT:      ${{ secrets.SMTP_PORT }}
+          SMTP_USER:      ${{ secrets.SMTP_USER }}
+          SMTP_PASS:      ${{ secrets.SMTP_PASS }}
+          SENDER_EMAIL:   ${{ secrets.SENDER_EMAIL }}
+          REPLY_TO_EMAIL: ${{ secrets.REPLY_TO_EMAIL }}
         run: python job_watcher.py
