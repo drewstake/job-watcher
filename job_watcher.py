@@ -1,5 +1,4 @@
 from dotenv import load_dotenv
-# Override shell exports with .env values
 load_dotenv(override=True)
 
 import os
@@ -16,20 +15,19 @@ from selenium.webdriver.common.by import By
 from webdriver_manager.chrome import ChromeDriverManager
 
 # — CONFIG —
-BASE_URL      = "https://recruiting.paylocity.com"
-PATH          = "/recruiting/jobs/All/4e1cd2fd-3e15-41ae-a6d5-1ca70a95426b/Elite-Development-Group-LLC"
-URL           = BASE_URL + PATH
-SEEN_FILE     = "seen.json"
-TO_EMAIL      = "drewstake3@gmail.com"
-DATE_FORMAT   = "%Y-%m-%d"
+BASE_URL    = "https://recruiting.paylocity.com"
+PATH        = "/recruiting/jobs/All/4e1cd2fd-3e15-41ae-a6d5-1ca70a95426b/Elite-Development-Group-LLC"
+URL         = BASE_URL + PATH
+SEEN_FILE   = "seen.json"
+TO_EMAIL    = "drewstake3@gmail.com"
+DATE_FORMAT = "%Y-%m-%d"
 
+# only these four are strictly required
 REQUIRED_ENVS = [
     "SMTP_HOST",
     "SMTP_PORT",
     "SMTP_USER",
-    "SMTP_PASS",
-    "SENDER_EMAIL",
-    "REPLY_TO_EMAIL"
+    "SMTP_PASS"
 ]
 
 def check_env_vars():
@@ -39,10 +37,6 @@ def check_env_vars():
         sys.exit(1)
 
 def load_seen():
-    """
-    Load a dict of {url: first_seen_date} from seen.json.
-    Supports legacy list format by migrating into a dict with today’s date.
-    """
     try:
         raw = json.load(open(SEEN_FILE))
     except FileNotFoundError:
@@ -51,10 +45,9 @@ def load_seen():
     if isinstance(raw, list):
         today = datetime.now().strftime(DATE_FORMAT)
         return {url: today for url in raw}
-    elif isinstance(raw, dict):
+    if isinstance(raw, dict):
         return raw
-    else:
-        return {}
+    return {}
 
 def save_seen(seen_dict):
     with open(SEEN_FILE, "w") as f:
@@ -86,10 +79,10 @@ def fetch_jobs():
 
     jobs = []
     for card in driver.find_elements(By.CSS_SELECTOR, ".job-listing-job-item"):
-        link_el = card.find_element(By.CSS_SELECTOR, ".job-item-title a")
-        title   = link_el.text.strip()
-        href    = link_el.get_attribute("href")
-        url     = href if href.startswith("http") else BASE_URL + href
+        link = card.find_element(By.CSS_SELECTOR, ".job-item-title a")
+        title = link.text.strip()
+        href  = link.get_attribute("href")
+        url   = href if href.startswith("http") else BASE_URL + href
         jobs.append({"title": title, "url": url})
     driver.quit()
     return jobs
@@ -97,10 +90,12 @@ def fetch_jobs():
 def send_email(new_jobs):
     body = "\n\n".join(f"{j['title']}\n{j['url']}" for j in new_jobs)
     msg = EmailMessage()
-    msg["Subject"]  = f"{len(new_jobs)} new job(s) found"
-    msg["From"]     = os.getenv("SENDER_EMAIL")
-    msg["Reply-To"] = os.getenv("REPLY_TO_EMAIL")
-    msg["To"]       = TO_EMAIL
+    msg["Subject"] = f"{len(new_jobs)} new job(s) found"
+    if os.getenv("SENDER_EMAIL"):
+        msg["From"] = os.getenv("SENDER_EMAIL")
+    if os.getenv("REPLY_TO_EMAIL"):
+        msg["Reply-To"] = os.getenv("REPLY_TO_EMAIL")
+    msg["To"] = TO_EMAIL
     msg.set_content(body)
 
     with smtplib.SMTP(os.getenv("SMTP_HOST"), int(os.getenv("SMTP_PORT"))) as smtp:
@@ -111,14 +106,14 @@ def send_email(new_jobs):
 def main():
     check_env_vars()
 
-    seen     = load_seen()
-    jobs     = fetch_jobs()
-    today    = datetime.now().strftime(DATE_FORMAT)
+    seen  = load_seen()
+    jobs  = fetch_jobs()
+    today = datetime.now().strftime(DATE_FORMAT)
 
     print(f"\n=== Current Jobs ({len(jobs)}) ===")
     for i, job in enumerate(jobs, 1):
-        mark = seen.get(job["url"], "NEW")
-        print(f"{i}. {job['title']}  (first seen: {mark})\n   {job['url']}")
+        first_seen = seen.get(job["url"], "NEW")
+        print(f"{i}. {job['title']}  (first seen: {first_seen})\n   {job['url']}")
     print("=" * 30 + "\n")
 
     new_jobs = [j for j in jobs if j["url"] not in seen]
