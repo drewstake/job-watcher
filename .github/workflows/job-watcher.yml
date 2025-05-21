@@ -9,13 +9,14 @@ on:
 jobs:
   check-jobs:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v3
 
       - name: Dump SMTP env vars
         run: |
           echo "=== SMTP ENV in runner ==="
-          printenv | grep -E 'SMTP_|SENDER_EMAIL|REPLY_TO_EMAIL'
+          printenv | grep -E 'SMTP_|SENDER_EMAIL|REPLY_TO_EMAIL' || true
 
       - name: Set up Python
         uses: actions/setup-python@v4
