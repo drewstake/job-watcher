@@ -1,5 +1,5 @@
 from dotenv import load_dotenv
-# Override shell exports with .env
+# Override shell exports with .env values
 load_dotenv(override=True)
 
 import os
@@ -39,15 +39,24 @@ def check_env_vars():
         sys.exit(1)
 
 def load_seen():
-    """Load a dict of {url: first_seen_date} from seen.json."""
+    """
+    Load a dict of {url: first_seen_date} from seen.json.
+    Supports legacy list format by migrating into a dict with today’s date.
+    """
     try:
-        with open(SEEN_FILE, "r") as f:
-            return json.load(f)
+        raw = json.load(open(SEEN_FILE))
     except FileNotFoundError:
         return {}
 
+    if isinstance(raw, list):
+        today = datetime.now().strftime(DATE_FORMAT)
+        return {url: today for url in raw}
+    elif isinstance(raw, dict):
+        return raw
+    else:
+        return {}
+
 def save_seen(seen_dict):
-    """Persist the seen dict back to seen.json."""
     with open(SEEN_FILE, "w") as f:
         json.dump(seen_dict, f, indent=2)
 
@@ -69,9 +78,7 @@ def fetch_jobs():
     )
     driver.execute_cdp_cmd(
         "Page.addScriptToEvaluateOnNewDocument",
-        {
-            "source": "Object.defineProperty(navigator, 'webdriver', {get: () => undefined});"
-        }
+        {"source": "Object.defineProperty(navigator, 'webdriver', {get: () => undefined});"}
     )
 
     driver.get(URL)
@@ -104,7 +111,7 @@ def send_email(new_jobs):
 def main():
     check_env_vars()
 
-    seen     = load_seen()  # dict url→date
+    seen     = load_seen()
     jobs     = fetch_jobs()
     today    = datetime.now().strftime(DATE_FORMAT)
 
@@ -114,13 +121,11 @@ def main():
         print(f"{i}. {job['title']}  (first seen: {mark})\n   {job['url']}")
     print("=" * 30 + "\n")
 
-    # find jobs we have not recorded yet
     new_jobs = [j for j in jobs if j["url"] not in seen]
     if not new_jobs:
         print("No new jobs found.\n")
         return
 
-    # notify and record
     send_email(new_jobs)
     for j in new_jobs:
         seen[j["url"]] = today
