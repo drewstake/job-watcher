@@ -1,8 +1,9 @@
+# .github/workflows/job-watcher.yml
 name: Job Watcher
 
 on:
   schedule:
-    - cron: '0 */12 * * *'    # runs at 00:00 & 12:00 UTC (8 AM & 8 PM EDT)
+    - cron: '0 */12 * * *'
   workflow_dispatch:
 
 jobs:
@@ -11,6 +12,11 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
+      - name: Dump SMTP env vars
+        run: |
+          echo "=== SMTP ENV in runner ==="
+          printenv | grep -E 'SMTP_|SENDER_EMAIL|REPLY_TO_EMAIL'
+      
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
