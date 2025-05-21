@@ -1,5 +1,4 @@
 from dotenv import load_dotenv
-# Override shell exports with .env values
 load_dotenv(override=True)
 
 import os
@@ -15,7 +14,6 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from webdriver_manager.chrome import ChromeDriverManager
 
-# — CONFIG —
 BASE_URL      = "https://recruiting.paylocity.com"
 PATH          = "/recruiting/jobs/All/4e1cd2fd-3e15-41ae-a6d5-1ca70a95426b/Elite-Development-Group-LLC"
 URL           = BASE_URL + PATH
@@ -23,38 +21,25 @@ SEEN_FILE     = "seen.json"
 TO_EMAIL      = "drewstake3@gmail.com"
 DATE_FORMAT   = "%Y-%m-%d"
 
-# Always required
+# now only these four are ever required
 REQUIRED_ENVS = [
     "SMTP_HOST",
     "SMTP_PORT",
     "SMTP_USER",
-    "SMTP_PASS"
-]
-# Only required when NOT running in GitHub Actions
-CI_OPTIONAL_ENVS = [
-    "SENDER_EMAIL",
-    "REPLY_TO_EMAIL"
+    "SMTP_PASS",
 ]
 
 def check_env_vars():
     missing = [v for v in REQUIRED_ENVS if not os.getenv(v)]
-    # in CI we skip the sender/reply vars
-    if not os.getenv("GITHUB_ACTIONS"):
-        missing += [v for v in CI_OPTIONAL_ENVS if not os.getenv(v)]
     if missing:
         print("Error: missing environment variables:", ", ".join(missing))
         sys.exit(1)
 
 def load_seen():
-    """
-    Load a dict of {url: first_seen_date} from seen.json.
-    Supports legacy list format by migrating into a dict with today’s date.
-    """
     try:
         raw = json.load(open(SEEN_FILE))
     except FileNotFoundError:
         return {}
-
     if isinstance(raw, list):
         today = datetime.now().strftime(DATE_FORMAT)
         return {url: today for url in raw}
@@ -105,7 +90,7 @@ def send_email(new_jobs):
     body = "\n\n".join(f"{j['title']}\n{j['url']}" for j in new_jobs)
     msg = EmailMessage()
     msg["Subject"]  = f"{len(new_jobs)} new job(s) found"
-    # In CI we may rely on SendGrid default sender, so only set if provided
+    # only set From/Reply if present in env (local use)
     if os.getenv("SENDER_EMAIL"):
         msg["From"]     = os.getenv("SENDER_EMAIL")
     if os.getenv("REPLY_TO_EMAIL"):
@@ -121,9 +106,9 @@ def send_email(new_jobs):
 def main():
     check_env_vars()
 
-    seen     = load_seen()
-    jobs     = fetch_jobs()
-    today    = datetime.now().strftime(DATE_FORMAT)
+    seen  = load_seen()
+    jobs  = fetch_jobs()
+    today = datetime.now().strftime(DATE_FORMAT)
 
     print(f"\n=== Current Jobs ({len(jobs)}) ===")
     for i, job in enumerate(jobs, 1):
