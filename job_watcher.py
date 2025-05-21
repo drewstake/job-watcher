@@ -1,4 +1,5 @@
 from dotenv import load_dotenv
+# Override shell exports with .env values
 load_dotenv(override=True)
 
 import os
@@ -14,6 +15,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from webdriver_manager.chrome import ChromeDriverManager
 
+# — CONFIG —
 BASE_URL      = "https://recruiting.paylocity.com"
 PATH          = "/recruiting/jobs/All/4e1cd2fd-3e15-41ae-a6d5-1ca70a95426b/Elite-Development-Group-LLC"
 URL           = BASE_URL + PATH
@@ -21,12 +23,13 @@ SEEN_FILE     = "seen.json"
 TO_EMAIL      = "drewstake3@gmail.com"
 DATE_FORMAT   = "%Y-%m-%d"
 
-# now only these four are ever required
 REQUIRED_ENVS = [
     "SMTP_HOST",
     "SMTP_PORT",
     "SMTP_USER",
     "SMTP_PASS",
+    "SENDER_EMAIL",
+    "REPLY_TO_EMAIL"
 ]
 
 def check_env_vars():
@@ -36,10 +39,15 @@ def check_env_vars():
         sys.exit(1)
 
 def load_seen():
+    """
+    Load a dict of {url: first_seen_date} from seen.json.
+    Supports legacy list format by migrating into a dict with today’s date.
+    """
     try:
         raw = json.load(open(SEEN_FILE))
     except FileNotFoundError:
         return {}
+
     if isinstance(raw, list):
         today = datetime.now().strftime(DATE_FORMAT)
         return {url: today for url in raw}
@@ -90,11 +98,8 @@ def send_email(new_jobs):
     body = "\n\n".join(f"{j['title']}\n{j['url']}" for j in new_jobs)
     msg = EmailMessage()
     msg["Subject"]  = f"{len(new_jobs)} new job(s) found"
-    # only set From/Reply if present in env (local use)
-    if os.getenv("SENDER_EMAIL"):
-        msg["From"]     = os.getenv("SENDER_EMAIL")
-    if os.getenv("REPLY_TO_EMAIL"):
-        msg["Reply-To"] = os.getenv("REPLY_TO_EMAIL")
+    msg["From"]     = os.getenv("SENDER_EMAIL")
+    msg["Reply-To"] = os.getenv("REPLY_TO_EMAIL")
     msg["To"]       = TO_EMAIL
     msg.set_content(body)
 
@@ -106,9 +111,9 @@ def send_email(new_jobs):
 def main():
     check_env_vars()
 
-    seen  = load_seen()
-    jobs  = fetch_jobs()
-    today = datetime.now().strftime(DATE_FORMAT)
+    seen     = load_seen()
+    jobs     = fetch_jobs()
+    today    = datetime.now().strftime(DATE_FORMAT)
 
     print(f"\n=== Current Jobs ({len(jobs)}) ===")
     for i, job in enumerate(jobs, 1):
